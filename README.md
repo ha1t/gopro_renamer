@@ -1,10 +1,6 @@
-# Media Dater
+# GoPro Renamer
 
-メタデータ内の撮影日時情報をもとにファイルの名前/作成日時/更新日時を変更するPowerShellスクリプト
-
-![screen1](img/screen1.gif)
-
-![screen2](img/screen2.png)
+media-dater をベースにGoPro用のRenameに特化したPowerShellスクリプト;
 
 ## 動作環境
 
