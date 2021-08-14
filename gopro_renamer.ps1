@@ -12,7 +12,7 @@ $recurseEnabled = $r
 $appVersion = "v1.0.6"
 Add-Type -AssemblyName System.Drawing
 
-if (Test-Path $FFMPEG -ne $true)
+if ((Test-Path $FFMPEG) -ne $true)
 {
     Write-Host "ffmpeg not found"
     Exit
@@ -38,6 +38,8 @@ function updateCreationTime($fileName, [System.DateTime]$updateDate)
         Write-Host "Error: " + $fileName
         Exit
     }
+
+    return $newFileName
 }
 
 # 詳細プロパティから日時文字列を生成する
@@ -86,6 +88,24 @@ function printSkipped($folder, $file) {
   Write-Host ")"
 }
 
+# GoProのデータかどうか判定
+function isGoProFile($targetFile)
+{
+    $file = Split-Path $targetFile -Leaf
+
+    if ($file.Length -ne 12)
+    {
+        return $false
+    }
+
+    if (@("GH", "GX").Contains($file.Substring(0, 2)) -ne $true)
+    {
+        return $false
+    }
+
+    return $true
+}
+
 # メイン処理
 function main {
   # バナーを表示
@@ -95,11 +115,13 @@ function main {
   # シェルオブジェクトを生成
   $shellObject = New-Object -ComObject Shell.Application
 
+  $tpath = "F:\GoPro\2021-05-05 - コピー\HERO9 Black 2"
+
   # ファイルリストを取得
   if ($recurseEnabled) {
-    $targetFiles = Get-ChildItem -File -Recurse | ForEach-Object { $_.Fullname }
+    $targetFiles = Get-ChildItem -Path "$tpath" -File -Recurse | ForEach-Object { $_.Fullname }
   } else {
-    $targetFiles = Get-ChildItem -File | ForEach-Object { $_.Fullname }
+    $targetFiles = Get-ChildItem -Path "$tpath" -File | ForEach-Object { $_.Fullname }
   }
 
   # ファイル毎の処理
@@ -112,58 +134,43 @@ function main {
     $folderPath = Split-Path $targetFile
     $fileName = Split-Path $targetFile -Leaf
     $fileExt = (Get-Item $targetFile).Extension.substring(1).ToLower()
+    $fileBaseName = $fileName -replace ".mp4$", ""
+    
+    if ((isGoProFile $targetFile) -eq $false)
+    {
+        printSkipped $folderPath $fileName
+        continue
+    }
 
-    if (($fileExt -eq "mov") `
-              -or ($fileExt -eq "mp4") `
-              -or ($fileExt -eq "heic")) {
-      # 詳細プロパティより取得
-      $date = getPropDate $folderPath $fileName
-      $dateStr = $date.ToString("yyyy/MM/dd HH:mm:ss")
-      $dateSource = "DETL"
-      $dateSourceColor = "Cyan"
-    }
-    if (!$dateStr) {
-      # それでも失敗したらスキップ
-      printSkipped $folderPath $fileName
-      continue
-    }
+    # 詳細プロパティより取得
+    $date = getPropDate $folderPath $fileName
+    $dateStr = $date.ToString("yyyy/MM/dd HH:mm:ss")
+    $dateSource = "DETL"
+    $dateSourceColor = "Cyan"
 
     # ファイル名を変更(YYYYMMDD-HHMMSS-NNN.EXT)
-    $renamed = $false
     $newFileName = ""
-    $tempFileBase = "GoPro_" + $dateStr.replace("/", "-").replace(" ", "_").replace(":", "")
+    $tempFileBase = $dateStr.replace("/", "-").replace(" ", "_").replace(":", "")
     if ($dryRunEnabled) {
-        $newPath = $folderPath + "\" + $tempFileBase + "-NNN" + "." + $fileExt
+        $newPath = $folderPath + "\" + $tempFileBase + "-${fileBaseName}" + "." + $fileExt
         $newFileName = Split-Path $newPath -Leaf
-        $renamed = $true
     } else {
-      for ([int]$i = 0; $i -le 999; $i++)
-      {
-        $newPath = $folderPath + "\" + $tempFileBase + "-" + $i.ToString("000") + "." + $fileExt
+        $newPath = $folderPath + "\" + $tempFileBase + "-" + $fileBaseName + "." + $fileExt
         $newFileName = Split-Path $newPath -Leaf
-        # 変更不要なら抜ける
-        if ($fileName -eq $newFileName) {
-          $renamed = $true
-          break
-        }
-        # ファイル重複チェック
-        if ((Test-Path $newPath) -eq $false)
+
+        # 生成後のファイルがある場合はSkip
+        if ((Test-Path $newPath))
         {
-          try {
-            updateCreationTime $targetFile $date
-            $updatedFileName = $targetFile + ".mp4"
-            Rename-Item $updatedFileName -newName $newFileName
-          } catch {
-            break
-          }
-          $renamed = $true
-          break
+            printSkipped $folderPath $fileName
+            continue
         }
-      }
-    }
-    if (!$renamed) {
-      printSkipped $folderPath $fileName
-      continue
+
+        try {
+            $updatedFileName = updateCreationTime $targetFile $date
+            Rename-Item $updatedFileName -newName $newFileName
+        } catch {
+            break
+        }
     }
 
     # 作成/更新日時を変更
