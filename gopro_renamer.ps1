@@ -40,31 +40,6 @@ function updateCreationTime($fileName, [System.DateTime]$updateDate)
     }
 }
 
-# Exifから日時文字列を生成する
-function getExifDate($path) {
-  try {
-    $img = New-Object Drawing.Bitmap($path)
-  } catch {
-    return ""
-  }
-  $byteAry = ($img.PropertyItems | Where-Object{$_.Id -eq 36867}).Value
-  if (!$byteAry) {
-    $img.Dispose()
-    $img = $null
-    return ""
-  }
-
-  # "YYYY:MM:DD HH:MM:SS " -> "YYYY/MM/DD HH:MM:SS"
-  $byteAry[4] = 47
-  $byteAry[7] = 47
-  $ret = [System.Text.Encoding]::UTF8.GetString($byteAry)
-  $ret = $ret.substring(0, 19)
-  $img.Dispose()
-  $img = $null
-
-  return $ret
-}
-
 # 詳細プロパティから日時文字列を生成する
 function getPropDate($folder, $file) {
   $shellFolder = $shellObject.namespace($folder)
@@ -138,13 +113,7 @@ function main {
     $fileName = Split-Path $targetFile -Leaf
     $fileExt = (Get-Item $targetFile).Extension.substring(1).ToLower()
 
-    # 日付文字列を取得(YYYY/MM/DD HH:MM:SS)
-    if ($fileExt -eq "jpg") {
-      # Exifより取得
-      $dateStr = getExifDate $targetFile
-      $dateSource = "EXIF"
-      $dateSourceColor = "Green"
-    } elseif (($fileExt -eq "mov") `
+    if (($fileExt -eq "mov") `
               -or ($fileExt -eq "mp4") `
               -or ($fileExt -eq "heic")) {
       # 詳細プロパティより取得
