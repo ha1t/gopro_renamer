@@ -100,19 +100,6 @@ function getPropDate($folder, $file) {
   return ($date - $ts)
 }
 
-# ファイル名から日時文字列を生成する
-function getFnameDate($file) {
-  $ret = ""
-
-  if ($file -match "^([0-9]{4})([0-9]{2})([0-9]{2})\-([0-9]{2})([0-9]{2})([0-9]{2})") {
-    # "YYYYMMDD-HH:MM:SS*" -> "YYYY/MM/DD HH:MM:SS"
-    $ret = $Matches[1] + "/" + $Matches[2] + "/" + $Matches[3]
-    $ret = $ret + " " + $Matches[4] + ":" + $Matches[5] + ":" + $Matches[6]
-  }
-
-  return $ret
-}
-
 # ファイルスキップ時の表示
 function printSkipped($folder, $file) {
   $rfPath = (Resolve-Path $folder -Relative)
@@ -165,17 +152,6 @@ function main {
       $dateStr = $date.ToString("yyyy/MM/dd HH:mm:ss")
       $dateSource = "DETL"
       $dateSourceColor = "Cyan"
-    }
-    if (!$dateStr -and `
-        (($fileExt -eq "jpg") `
-         -or ($fileExt -eq "mov") `
-         -or ($fileExt -eq "mp4") `
-         -or ($fileExt -eq "heic") `
-         -or ($fileExt -eq "png"))) {
-      # 失敗したらファイル名より取得
-      $dateStr = getFnameDate $fileName
-      $dateSource = "NAME"
-      $dateSourceColor = "Yellow"
     }
     if (!$dateStr) {
       # それでも失敗したらスキップ
