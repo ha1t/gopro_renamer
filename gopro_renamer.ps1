@@ -2,7 +2,7 @@
 # GoPro Renamer
 #
 
-Param([switch]$d,[switch]$r)
+Param([switch]$d,[switch]$r,[string]$folder)
 $dryRunEnabled = $d
 $recurseEnabled = $r
 
@@ -17,6 +17,21 @@ if ((Test-Path $FFMPEG) -ne $true)
     Write-Host "ffmpeg not found"
     Exit
 }
+
+
+if (!$folder)
+{
+    Write-Host "undefined target folder"
+    Exit
+}
+
+if ((Test-Path $folder) -eq $false)
+{
+    Write-Host "undefined target folder"
+    Exit
+}
+
+$tpath = $folder
 
 # ffmpeg で creation_time を更新する
 # creation_time=2021-08-14T23:51:59.000000Z
@@ -115,8 +130,6 @@ function main {
   # シェルオブジェクトを生成
   $shellObject = New-Object -ComObject Shell.Application
 
-  $tpath = "F:\GoPro\2021-05-05 - コピー\HERO9 Black 2"
-
   # ファイルリストを取得
   if ($recurseEnabled) {
     $targetFiles = Get-ChildItem -Path "$tpath" -File -Recurse | ForEach-Object { $_.Fullname }
@@ -137,6 +150,12 @@ function main {
     $fileBaseName = $fileName -replace ".mp4$", ""
     
     if ((isGoProFile $targetFile) -eq $false)
+    {
+        printSkipped $folderPath $fileName
+        continue
+    }
+
+    if ($fileName.Substring(2, 2) -eq "00")
     {
         printSkipped $folderPath $fileName
         continue
