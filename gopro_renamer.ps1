@@ -1,8 +1,16 @@
-#
+ï»¿#
 # GoPro Renamer
 #
 
-Param([switch]$d,[switch]$r,[string]$folder)
+Param(
+    [switch]$d,
+    [switch]$r,
+    [string]$folder
+)
+
+$PSDefaultParameterValues['*:Encoding'] = 'utf8'
+
+
 $dryRunEnabled = $d
 $recurseEnabled = $r
 
@@ -33,11 +41,11 @@ if ((Test-Path $folder) -eq $false)
 
 $tpath = $folder
 
-# ffmpeg ‚Å creation_time ‚ğXV‚·‚é
+# ffmpeg ã§ creation_time ã‚’æ›´æ–°ã™ã‚‹
 # creation_time=2021-08-14T23:51:59.000000Z
 function updateCreationTime($fileName, [System.DateTime]$updateDate)
 {
-    $updateDate -= New-TimeSpan -Hours 9 # ‚·‚Å‚Éˆø‚«Z‚µ‚Ä‚¢‚é‚Í‚¸‚È‚Ì‚Éc
+    $updateDate -= New-TimeSpan -Hours 9 # ã™ã§ã«å¼•ãç®—ã—ã¦ã„ã‚‹ã¯ãšãªã®ã«â€¦
     $update_time = $updateDate.ToString("yyyy-MM-ddTHH:mm:ss.000000Z")
     $newFileName = $fileName + ".mp4"
 
@@ -57,7 +65,7 @@ function updateCreationTime($fileName, [System.DateTime]$updateDate)
     return $newFileName
 }
 
-# Ú×ƒvƒƒpƒeƒB‚©‚ç“ú•¶š—ñ‚ğ¶¬‚·‚é
+# è©³ç´°ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ã‹ã‚‰æ—¥æ™‚æ–‡å­—åˆ—ã‚’ç”Ÿæˆã™ã‚‹
 function getPropDate($folder, $file) {
   $shellFolder = $shellObject.namespace($folder)
   $shellFile = $shellFolder.parseName($file)
@@ -65,10 +73,11 @@ function getPropDate($folder, $file) {
   $selectedPropertyName = ""
   $selectedPropertyValue = ""
 
-  for ($i = 0; $i -lt 300; $i++) { # 208‚Ü‚Å’T‚¹‚Î\•ª?
+  for ($i = 0; $i -lt 300; $i++) { # 208ã¾ã§æ¢ã›ã°ååˆ†?
     $propertyName = $shellFolder.getDetailsOf($Null, $i)
-    if (($propertyName -eq "B‰e“ú") `
-        -or ($propertyName -eq "ƒƒfƒBƒA‚Ìì¬“ú")) {
+
+    if (($propertyName -eq "æ’®å½±æ—¥æ™‚") `
+        -or ($propertyName.Trim() -eq "ãƒ¡ãƒ‡ã‚£ã‚¢ã®ä½œæˆæ—¥æ™‚")) {
       $propertyValue = $shellFolder.getDetailsOf($shellFile, $i)
       if ($propertyValue) {
         $selectedPropertyNo = $i
@@ -79,12 +88,13 @@ function getPropDate($folder, $file) {
     }
   }
   if (!$selectedPropertyNo) {
+    Write-Host "Error: fail getPropDate:" + $file;
     return ""
   }
 
   # " YYYY/ MM/ DD   H:MM" -> "YYYY/MM/DD HH:MM:00"
   $ret = $selectedPropertyValue
-  $time = "0" + $ret.substring(16) + ":00" # •b‚Íæ“¾‚Å‚«‚È‚¢‚Ì‚Å00‚ğİ’è
+  $time = "0" + $ret.substring(16) + ":00" # ç§’ã¯å–å¾—ã§ããªã„ã®ã§00ã‚’è¨­å®š
   $time = $time.substring($time.length - 8, 8)
   $ret = $ret.substring(1, 5) + $ret.substring(7, 3) + $ret.substring(11, 2) + " " + $time
   $date = Get-Date $ret
@@ -92,7 +102,7 @@ function getPropDate($folder, $file) {
   return ($date - $ts)
 }
 
-# ƒtƒ@ƒCƒ‹ƒXƒLƒbƒv‚Ì•\¦
+# ãƒ•ã‚¡ã‚¤ãƒ«ã‚¹ã‚­ãƒƒãƒ—æ™‚ã®è¡¨ç¤º
 function printSkipped($folder, $file) {
   $rfPath = (Resolve-Path $folder -Relative)
   if ($rfPath.StartsWith("..\")) {
@@ -103,7 +113,7 @@ function printSkipped($folder, $file) {
   Write-Host ")"
 }
 
-# GoPro‚Ìƒf[ƒ^‚©‚Ç‚¤‚©”»’è
+# GoProã®ãƒ‡ãƒ¼ã‚¿ã‹ã©ã†ã‹åˆ¤å®š
 function isGoProFile($targetFile)
 {
     $file = Split-Path $targetFile -Leaf
@@ -121,29 +131,29 @@ function isGoProFile($targetFile)
     return $true
 }
 
-# ƒƒCƒ“ˆ—
+# ãƒ¡ã‚¤ãƒ³å‡¦ç†
 function main {
-  # ƒoƒi[‚ğ•\¦
+  # ãƒãƒŠãƒ¼ã‚’è¡¨ç¤º
   $mode = if ($dryRunEnabled) { " (dry run)" } else { "" }
   Write-Host "== Media Dater $appVersion$mode =="
 
-  # ƒVƒFƒ‹ƒIƒuƒWƒFƒNƒg‚ğ¶¬
+  # ã‚·ã‚§ãƒ«ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã‚’ç”Ÿæˆ
   $shellObject = New-Object -ComObject Shell.Application
 
-  # ƒtƒ@ƒCƒ‹ƒŠƒXƒg‚ğæ“¾
+  # ãƒ•ã‚¡ã‚¤ãƒ«ãƒªã‚¹ãƒˆã‚’å–å¾—
   if ($recurseEnabled) {
     $targetFiles = Get-ChildItem -Path "$tpath" -File -Recurse | ForEach-Object { $_.Fullname }
   } else {
     $targetFiles = Get-ChildItem -Path "$tpath" -File | ForEach-Object { $_.Fullname }
   }
 
-  # ƒtƒ@ƒCƒ‹–ˆ‚Ìˆ—
+  # ãƒ•ã‚¡ã‚¤ãƒ«æ¯ã®å‡¦ç†
   foreach($targetFile in $targetFiles) {
     $dateStr = ""
     $dateSource = ""
     $dateSourceColor = "" 
 
-    # ƒtƒHƒ‹ƒ_ƒpƒX/ƒtƒ@ƒCƒ‹–¼/Šg’£q‚ğæ“¾
+    # ãƒ•ã‚©ãƒ«ãƒ€ãƒ‘ã‚¹/ãƒ•ã‚¡ã‚¤ãƒ«å/æ‹¡å¼µå­ã‚’å–å¾—
     $folderPath = Split-Path $targetFile
     $fileName = Split-Path $targetFile -Leaf
     $fileExt = (Get-Item $targetFile).Extension.substring(1).ToLower()
@@ -161,13 +171,13 @@ function main {
         continue
     }
 
-    # Ú×ƒvƒƒpƒeƒB‚æ‚èæ“¾
+    # è©³ç´°ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ã‚ˆã‚Šå–å¾—
     $date = getPropDate $folderPath $fileName
     $dateStr = $date.ToString("yyyy/MM/dd HH:mm:ss")
     $dateSource = "DETL"
     $dateSourceColor = "Cyan"
 
-    # ƒtƒ@ƒCƒ‹–¼‚ğ•ÏX(YYYYMMDD-HHMMSS-NNN.EXT)
+    # ãƒ•ã‚¡ã‚¤ãƒ«åã‚’å¤‰æ›´(YYYYMMDD-HHMMSS-NNN.EXT)
     $newFileName = ""
     $tempFileBase = $dateStr.replace("/", "-").replace(" ", "_").replace(":", "")
     if ($dryRunEnabled) {
@@ -177,7 +187,7 @@ function main {
         $newPath = $folderPath + "\" + $tempFileBase + "-" + $fileBaseName + "." + $fileExt
         $newFileName = Split-Path $newPath -Leaf
 
-        # ¶¬Œã‚Ìƒtƒ@ƒCƒ‹‚ª‚ ‚éê‡‚ÍSkip
+        # ç”Ÿæˆå¾Œã®ãƒ•ã‚¡ã‚¤ãƒ«ãŒã‚ã‚‹å ´åˆã¯Skip
         if ((Test-Path $newPath))
         {
             printSkipped $folderPath $fileName
@@ -192,13 +202,13 @@ function main {
         }
     }
 
-    # ì¬/XV“ú‚ğ•ÏX
+    # ä½œæˆ/æ›´æ–°æ—¥æ™‚ã‚’å¤‰æ›´
     if (!$dryRunEnabled) {
       Set-ItemProperty $newPath -Name CreationTime -Value $dateStr
       Set-ItemProperty $newPath -Name LastWriteTime -Value $dateStr
     }
 
-    # Œ‹‰Ê•\¦
+    # çµæœè¡¨ç¤º
     $rfPath = (Resolve-Path $folderPath -Relative)
     if ($rfPath.StartsWith("..\")) {
       $rfPath = ".\"
@@ -208,11 +218,11 @@ function main {
     Write-Host ")"
   }
 
-  # ƒVƒFƒ‹ƒIƒuƒWƒFƒNƒg‚ğ‰ğ•ú
+  # ã‚·ã‚§ãƒ«ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã‚’è§£æ”¾
   [System.Runtime.InteropServices.Marshal]::ReleaseComObject($shellObject) | out-null
   [System.GC]::Collect()
   [System.GC]::WaitForPendingFinalizers()
 }
 
-# Às
+# å®Ÿè¡Œ
 main
